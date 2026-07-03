@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Finger Painting ✦ Hand Tracking</title>
+
+  <!-- MediaPipe Hands — loaded from Google CDN, no install needed -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+
+  <style>
+    /* ── Tokens ─────────────────────────────────────────── */
+    :root {
+      --bg:        #0d0d12;
+      --surface:   #16161f;
+      --border:    #2a2a3a;
+      --text:      #e8e6f0;
+      --muted:     #7a7890;
+      --accent:    #b48aff;
+      --radius:    12px;
+      --font:      'Segoe UI', system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ──────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .logo {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    /* ── Controls row ───────────────────────────────────── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .control-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      user-select: none;
+    }
+
+    /* Colour palette */
+    .palette {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .swatch {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.12s, border-color 0.12s;
+    }
+
+    .swatch:hover  { transform: scale(1.18); }
+    .swatch.active { border-color: #fff; transform: scale(1.18); }
+
+    /* Custom colour input */
+    input[type="color"] {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      padding: 0;
+      cursor: pointer;
+      background: none;
+      appearance: none;
+      -webkit-appearance: none;
+      overflow: hidden;
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+    /* Brush size */
+    .slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    input[type="range"] {
+      width: 80px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Buttons */
+    button {
+      padding: 5px 13px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 12px;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+    }
+
+    button:hover { background: var(--border); }
+
+    button.primary {
+      background: var(--accent);
+      color: #0d0d12;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    button.primary:hover { opacity: 0.85; }
+
+    /* Separator */
+    .sep {
+      width: 1px;
+      height: 22px;
+      background: var(--border);
+    }
+
+    /* ── Main canvas area ───────────────────────────────── */
+    main {
+      position: relative;
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* The webcam feed (mirrored, faded) */
+    #webcam {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      opacity: 0.18;
+      pointer-events: none;
+    }
+
+    /* The drawing canvas — sits on top of the webcam */
+    #paintCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: none;
+    }
+
+    /* Fingertip cursor overlay */
+    #cursorDot {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      transition: background 0.1s;
+      display: none;
+      mix-blend-mode: screen;
+      z-index: 10;
+    }
+
+    /* ── Status overlay ─────────────────────────────────── */
+    #status {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(13,13,18,0.88);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 32px;
+      text-align: center;
+      backdrop-filter: blur(6px);
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    #status h2 { font-size: 18px; margin-bottom: 6px; }
+    #status p  { font-size: 13px; color: var(--muted); }
+
+    #status.hidden { display: none; }
+
+    /* ── Tip bar ────────────────────────────────────────── */
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 7px 18px;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      gap: 20px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    footer span strong { color: var(--text); }
+  </style>
+</head>
+
+<body>
+
+<!-- ── Header Controls ───────────────────────────────────── -->
+<header>
+  <div class="logo">✦ Finger Paint</div>
+
+  <div class="controls">
+    <!-- Colour swatches -->
+    <span class="control-label">Colour</span>
+    <div class="palette" id="palette">
+      <div class="swatch active" data-color="#b48aff" style="background:#b48aff"></div>
+      <div class="swatch"        data-color="#ff6b9d" style="background:#ff6b9d"></div>
+      <div class="swatch"        data-color="#ffd166" style="background:#ffd166"></div>
+      <div class="swatch"        data-color="#06d6a0" style="background:#06d6a0"></div>
+      <div class="swatch"        data-color="#4cc9f0" style="background:#4cc9f0"></div>
+      <div class="swatch"        data-color="#ffffff" style="background:#ffffff"></div>
+    </div>
+    <!-- Custom picker -->
+    <input type="color" id="colorPicker" value="#b48aff" title="Pick any colour"/>
+
+    <div class="sep"></div>
+
+    <!-- Brush size -->
+    <span class="control-label">Size</span>
+    <div class="slider-wrap">
+      <input type="range" id="brushSize" min="2" max="40" value="10"/>
+      <span id="sizeLabel" class="control-label">10</span>
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- Eraser toggle -->
+    <button id="eraserBtn">Eraser</button>
+
+    <!-- Clear -->
+    <button id="clearBtn">Clear</button>
+
+    <!-- Save -->
+    <button class="primary" id="saveBtn">Save ↓</button>
+  </div>
+</header>
+
+<!-- ── Canvas area ───────────────────────────────────────── -->
+<main>
+  <video id="webcam" autoplay muted playsinline></video>
+  <canvas id="paintCanvas"></canvas>
+  <div id="cursorDot"></div>
+
+  <div id="status">
+    <h2>Starting camera…</h2>
+    <p>Allow camera access when your browser asks.</p>
+  </div>
+</main>
+
+<!-- ── Tips bar ──────────────────────────────────────────── -->
+<footer>
+  <span>✦ <strong>Raise index finger</strong> to paint</span>
+  <span>✦ <strong>Pinch</strong> index + thumb to pause</span>
+  <span>✦ Works best in Chrome</span>
+</footer>
+
+
+<script>
+// ── State ──────────────────────────────────────────────────
+const state = {
+  color:    '#b48aff',
+  brushSize: 10,
+  erasing:  false,
+  drawing:  false,    // true when fingertip is actively down
+  prevX:    null,
+  prevY:    null,
+};
+
+// ── Element refs ───────────────────────────────────────────
+const video       = document.getElementById('webcam');
+const canvas      = document.getElementById('paintCanvas');
+const ctx         = canvas.getContext('2d');
+const statusEl    = document.getElementById('status');
+const cursorDot   = document.getElementById('cursorDot');
+const brushSlider = document.getElementById('brushSize');
+const sizeLabel   = document.getElementById('sizeLabel');
+const eraserBtn   = document.getElementById('eraserBtn');
+const clearBtn    = document.getElementById('clearBtn');
+const saveBtn     = document.getElementById('saveBtn');
+const colorPicker = document.getElementById('colorPicker');
+
+// ── Resize canvas to match window ─────────────────────────
+function resizeCanvas() {
+  // Preserve existing drawing while resizing
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  ctx.putImageData(img, 0, 0);
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ── Colour palette ─────────────────────────────────────────
+document.getElementById('palette').addEventListener('click', e => {
+  const swatch = e.target.closest('.swatch');
+  if (!swatch) return;
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+  swatch.classList.add('active');
+  state.color = swatch.dataset.color;
+  colorPicker.value = state.color;
+  state.erasing = false;
+  eraserBtn.style.background = '';
+});
+
+colorPicker.addEventListener('input', e => {
+  state.color = e.target.value;
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+  state.erasing = false;
+});
+
+// ── Brush size ─────────────────────────────────────────────
+brushSlider.addEventListener('input', e => {
+  state.brushSize = +e.target.value;
+  sizeLabel.textContent = state.brushSize;
+});
+
+// ── Eraser ─────────────────────────────────────────────────
+eraserBtn.addEventListener('click', () => {
+  state.erasing = !state.erasing;
+  eraserBtn.style.background = state.erasing ? 'var(--accent)' : '';
+  eraserBtn.style.color      = state.erasing ? '#0d0d12' : '';
+});
+
+// ── Clear ──────────────────────────────────────────────────
+clearBtn.addEventListener('click', () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+});
+
+// ── Save ──────────────────────────────────────────────────
+saveBtn.addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = 'finger-painting.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+
+// ── Drawing helpers ────────────────────────────────────────
+function drawStroke(x, y) {
+  ctx.globalCompositeOperation = state.erasing ? 'destination-out' : 'source-over';
+  ctx.strokeStyle = state.erasing ? 'rgba(0,0,0,1)' : state.color;
+  ctx.lineWidth   = state.brushSize;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+
+  ctx.beginPath();
+
+  if (state.prevX !== null) {
+    ctx.moveTo(state.prevX, state.prevY);
+    ctx.lineTo(x, y);
+  } else {
+    // First point — draw a dot
+    ctx.arc(x, y, state.brushSize / 2, 0, Math.PI * 2);
+    ctx.fillStyle = state.color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  }
+
+  ctx.stroke();
+  state.prevX = x;
+  state.prevY = y;
+}
+
+// ── MediaPipe Hands setup ──────────────────────────────────
+const hands = new Hands({
+  locateFile: file =>
+    `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+
+hands.setOptions({
+  maxNumHands:         1,
+  modelComplexity:     1,
+  minDetectionConfidence:  0.75,
+  minTrackingConfidence:   0.75,
+});
+
+hands.onResults(onHandResults);
+
+// ── Camera ─────────────────────────────────────────────────
+const camera = new Camera(video, {
+  onFrame: async () => { await hands.send({ image: video }); },
+  width: 1280,
+  height: 720,
+});
+
+camera.start().then(() => {
+  statusEl.classList.add('hidden');
+  cursorDot.style.display = 'block';
+  resizeCanvas();
+}).catch(err => {
+  statusEl.querySelector('h2').textContent = 'Camera blocked';
+  statusEl.querySelector('p').textContent  =
+    'Please allow camera access in your browser, then refresh.';
+});
+
+// ── Hand results callback ──────────────────────────────────
+function onHandResults(results) {
+  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+    // No hand visible — lift pen
+    state.prevX = null;
+    state.prevY = null;
+    cursorDot.style.display = 'none';
+    return;
+  }
+
+  const landmarks = results.multiHandLandmarks[0];
+
+  // Landmark indices used:
+  //   4  = thumb tip
+  //   8  = index finger tip
+  //   12 = middle finger tip
+  const indexTip  = landmarks[8];
+  const thumbTip  = landmarks[4];
+  const middleTip = landmarks[12];
+
+  // Mirror the X coordinate (video is CSS-mirrored, so we invert)
+  const x = (1 - indexTip.x) * canvas.width;
+  const y =      indexTip.y  * canvas.height;
+
+  // Move cursor dot to fingertip
+  cursorDot.style.left    = x + 'px';
+  cursorDot.style.top     = y + 'px';
+  cursorDot.style.display = 'block';
+  cursorDot.style.background = state.erasing ? 'rgba(255,255,255,0.3)' : state.color;
+
+  // ── Pinch-to-pause detection ───────────────────────────
+  // Measure distance between index tip and thumb tip
+  const dx = indexTip.x - thumbTip.x;
+  const dy = indexTip.y - thumbTip.y;
+  const pinchDist = Math.sqrt(dx * dx + dy * dy);
+  const isPinching = pinchDist < 0.07;   // threshold (0–1 scale)
+
+  if (isPinching) {
+    // Pause — lift pen but stay visible
+    state.prevX = null;
+    state.prevY = null;
+    cursorDot.style.borderColor = 'rgba(255,255,255,0.4)';
+    return;
+  }
+
+  cursorDot.style.borderColor = '#fff';
+
+  // ── Draw ───────────────────────────────────────────────
+  drawStroke(x, y);
+}
+</script>
+
+</body>
+</html>

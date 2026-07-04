@@ -1,4 +1,4 @@
-# AirPencil 🎨
+# AirArt 🎨
 
 A modern, premium‑looking web‑based drawing app powered by **MediaPipe Hands** for air‑gesture drawing.  
 The app supports:
@@ -21,8 +21,8 @@ The app supports:
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/Air-Pencil.git
-cd Air-Pencil
+git clone https://github.com/daystar-1nine/air-art.git
+cd air-art
 
 # Install dependencies (Vite + TypeScript)
 npm install
@@ -58,4 +58,4 @@ Feel free to open issues or submit PRs.
 All contributions should follow the existing code style and include appropriate tests where possible.
 
 ## License
-MIT © 2026 AirPencil contributors
+MIT © 2026 AirArt contributors

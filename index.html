@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AirArt ✦ Hand Tracking</title>
   <link rel="icon" type="image/png" href="/logo.png" />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- MediaPipe Hands — loaded from Google CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
@@ -19,8 +24,8 @@
   <div class="landing-content">
     <img src="/logo.png" alt="AirArt Logo" class="landing-logo-img" />
     <p class="landing-tagline">Paint the Air. Unleash your Creativity.</p>
-    <a id="startPaintingBtn" class="neon-button" href="app.html">
-      <span class="neon-text">TRY NOW</span>
+    <a id="startPaintingBtn" class="primary-btn" href="app.html">
+      <span>TRY NOW</span>
     </a>
     <div style="margin-top: 16px;">
       <button id="coffeeBtn" class="coffee-btn">
@@ -33,17 +38,14 @@
     <h3>Developed by</h3>
     <div class="cards">
       <!-- Suraj Card -->
-      <div class="contributor-card star-border-container">
-        <div class="border-gradient-bottom"></div>
-        <div class="border-gradient-top"></div>
-        <div class="inner-content">
-          <div class="card-icon">
-            <img src="/suraj.jpg" alt="Suraj" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent);" />
-          </div>
-          <div class="card-text">
-            <h1 class="name">Suraj</h1>
-          </div>
-          <div class="card-socials">
+      <div class="glass-card">
+        <div class="card-icon">
+          <img src="/suraj.jpg" alt="Suraj" />
+        </div>
+        <div class="card-text">
+          <h1 class="name">Suraj</h1>
+        </div>
+        <div class="card-socials">
           <div class="socials-container">
             <a href="https://github.com/daystar-1nine" target="_blank" class="social-link" title="GitHub">
               <svg width="1em" height="1em" fill="currentColor" viewBox="0 0 1024 1024">
@@ -65,20 +67,16 @@
           </div>
         </div>
       </div>
-      </div>
 
       <!-- Shubhra Card -->
-      <div class="contributor-card star-border-container">
-        <div class="border-gradient-bottom"></div>
-        <div class="border-gradient-top"></div>
-        <div class="inner-content">
-          <div class="card-icon">
-            <img src="/shubhra.jpg" alt="Shubhra" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent);" />
-          </div>
-          <div class="card-text">
-            <h1 class="name">Shubhra</h1>
-          </div>
-          <div class="card-socials">
+      <div class="glass-card">
+        <div class="card-icon">
+          <img src="/shubhra.jpg" alt="Shubhra" />
+        </div>
+        <div class="card-text">
+          <h1 class="name">Shubhra</h1>
+        </div>
+        <div class="card-socials">
           <div class="socials-container">
             <a href="https://github.com/shubhrashinde" target="_blank" class="social-link" title="GitHub">
               <svg width="1em" height="1em" fill="currentColor" viewBox="0 0 1024 1024">
@@ -99,7 +97,6 @@
             </a>
           </div>
         </div>
-      </div>
       </div>
     </div>
     </div>

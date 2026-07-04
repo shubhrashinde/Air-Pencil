@@ -31,16 +31,25 @@ const initLanding = () => {
 
   if (coffeeBtn && coffeeModal && closeCoffeeBtn) {
     coffeeBtn.addEventListener('click', () => {
+      coffeeModal.style.display = 'flex';
+      // Force a reflow so the transition applies after display changes
+      void coffeeModal.offsetWidth;
       coffeeModal.classList.remove('hidden');
     });
 
     closeCoffeeBtn.addEventListener('click', () => {
       coffeeModal.classList.add('hidden');
+      setTimeout(() => {
+        coffeeModal.style.display = 'none';
+      }, 300); // matches transition time
     });
 
     coffeeModal.addEventListener('click', (e) => {
       if (e.target === coffeeModal) {
         coffeeModal.classList.add('hidden');
+        setTimeout(() => {
+          coffeeModal.style.display = 'none';
+        }, 300);
       }
     });
   }

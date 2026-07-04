@@ -1,7 +1,6 @@
 import './styles/main.css';
 import './styles/ui.css';
 import './styles/canvas.css';
-import './styles/landing.css';
 
 import { CanvasRenderer } from './core/CanvasRenderer';
 import { UIManager } from './core/UIManager';
@@ -9,7 +8,10 @@ import { HandTracker } from './core/HandTracker';
 import { state } from './core/State';
 import type { Results, NormalizedLandmark } from '@mediapipe/hands';
 
-document.addEventListener('DOMContentLoaded', () => {
+const initApp = () => {
+  // Add modal open state to core state if not already there, or just track locally
+  let isModalOpen = false;
+
   const video = document.getElementById('webcam') as HTMLVideoElement;
   const canvas = document.getElementById('paintCanvas') as HTMLCanvasElement;
 
@@ -28,7 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let prevPinchCenterY = 0;
   let isZoomPanning = false;
 
+  // Smoothing states for depth
+  let smoothedDepthScale = 1.0;
+
   const isFingerExtended = (tip: NormalizedLandmark, pip: NormalizedLandmark, wrist: NormalizedLandmark) => {
+    // Back to wrist distance, which is more reliable in 2D than MCP
     const dTip = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
     const dPip = Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
     return dTip > dPip;
@@ -37,13 +43,40 @@ document.addEventListener('DOMContentLoaded', () => {
   const getPinchInfo = (landmarks: NormalizedLandmark[]) => {
     const indexTip = landmarks[8];
     const thumbTip = landmarks[4];
+    const indexBase = landmarks[5];
+    const wrist = landmarks[0];
+    
+    // Pinch distance
     const dx = indexTip.x - thumbTip.x;
     const dy = indexTip.y - thumbTip.y;
     const dist = Math.hypot(dx, dy);
-    // Center point in screen coords
-    const cx = (1 - ((indexTip.x + thumbTip.x) / 2)) * canvas.width;
-    const cy = ((indexTip.y + thumbTip.y) / 2) * canvas.height;
-    return { isPinching: dist < 0.07, cx, cy, indexTip, thumbTip, wrist: landmarks[0], landmarks };
+    
+    // Hand scale relative to screen to normalize pinch threshold
+    const handSize = Math.hypot(wrist.x - indexBase.x, wrist.y - indexBase.y);
+    const pinchThreshold = handSize * 0.25; // Proper threshold to avoid accidental pinches
+    
+    // Map center point to screen coords with aspect ratio correction
+    // The video stream from MediaPipe is usually 16:9
+    const videoAspect = 16 / 9;
+    const canvasAspect = canvas.width / canvas.height;
+    
+    let normX = 1 - ((indexTip.x + thumbTip.x) / 2); // Flipped X
+    let normY = (indexTip.y + thumbTip.y) / 2;
+    
+    if (canvasAspect > videoAspect) {
+      // Canvas is wider than video (video cropped at top/bottom)
+      const visibleHeightRatio = videoAspect / canvasAspect;
+      normY = (normY - 0.5) / visibleHeightRatio + 0.5;
+    } else {
+      // Canvas is taller than video (video cropped at sides)
+      const visibleWidthRatio = canvasAspect / videoAspect;
+      normX = (normX - 0.5) / visibleWidthRatio + 0.5;
+    }
+    
+    const cx = normX * canvas.width;
+    const cy = normY * canvas.height;
+    
+    return { isPinching: dist < pinchThreshold, cx, cy, indexTip, thumbTip, wrist, landmarks };
   };
 
   const onHandResults = (results: Results) => {
@@ -110,8 +143,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const pinkyTip = landmarks[20];
     const pinkyPip = landmarks[18];
 
-    const x = (1 - indexTip.x) * canvas.width;
-    const y = indexTip.y * canvas.height;
+    // Aspect ratio correction for drawing coordinate mapping
+    const videoAspect = 16 / 9;
+    const canvasAspect = canvas.width / canvas.height;
+    
+    let drawX = (1 - indexTip.x);
+    let drawY = indexTip.y;
+    
+    if (canvasAspect > videoAspect) {
+      const visibleHeightRatio = videoAspect / canvasAspect;
+      drawY = (drawY - 0.5) / visibleHeightRatio + 0.5;
+    } else {
+      const visibleWidthRatio = canvasAspect / videoAspect;
+      drawX = (drawX - 0.5) / visibleWidthRatio + 0.5;
+    }
+    
+    const x = drawX * canvas.width;
+    const y = drawY * canvas.height;
 
     const indexExt = isFingerExtended(indexTip, indexPip, wrist);
     const middleExt = isFingerExtended(middleTip, middlePip, wrist);
@@ -159,13 +207,27 @@ document.addEventListener('DOMContentLoaded', () => {
     lastWristX = wrist.x;
     lastTime = now;
 
-    // 3. Dynamic Brush Size
+    // 3. Dynamic Brush Size (Smoothed)
     const indexBase = landmarks[5];
     const depthDist = Math.hypot(wrist.x - indexBase.x, wrist.y - indexBase.y);
-    const depthScale = Math.max(0.5, Math.min(2.0, depthDist * 5));
-    state.brushSize = state.baseBrushSize * depthScale;
+    const targetDepthScale = Math.max(0.5, Math.min(2.0, depthDist * 5));
+    
+    // EMA smoothing for depth to prevent jitter
+    smoothedDepthScale = smoothedDepthScale * 0.8 + targetDepthScale * 0.2;
+    state.brushSize = state.baseBrushSize * smoothedDepthScale;
 
-    uiManager.updateCursor(x, y, isPinching, true);
+    // If the modal is open, intercept interactions
+    if (isModalOpen) {
+      uiManager.updateCursor(x, y, isPinching, true);
+      if (isPinching) {
+        if (now - state.lastActionTime > 1000) {
+          // Only allow clicking the close button or elements inside modal
+          uiManager.triggerAirClick(x, y);
+          state.lastActionTime = now;
+        }
+      }
+      return; // Stop drawing logic entirely while modal is open
+    }
 
     if (isPinching) {
       renderer.endStroke();
@@ -185,22 +247,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const tracker = new HandTracker(video, onHandResults);
 
-  // Routing Logic
-  const startPaintingBtn = document.getElementById('startPaintingBtn')!;
-  const landingView = document.getElementById('landingView')!;
-  const appView = document.getElementById('appView')!;
+  // We need to know when modal opens/closes to pause drawing
+  const manualBtn = document.getElementById('manualBtn');
+  const closeManualBtn = document.getElementById('closeManualBtn');
 
-  startPaintingBtn.addEventListener('click', () => {
-    // Transition views
-    landingView.classList.add('hidden');
-    appView.classList.remove('hidden');
-
-    // Start camera tracking
-    tracker.start().then(() => {
-      uiManager.hideStatus();
-    }).catch((err) => {
-      console.error(err);
-      uiManager.showStatusError('Camera blocked', 'Please allow camera access in your browser, then refresh.');
-    });
+  if (manualBtn) manualBtn.addEventListener('click', () => { isModalOpen = true; });
+  if (closeManualBtn) closeManualBtn.addEventListener('click', () => {
+    isModalOpen = false;
+    // Add a slight delay to the click cooldown so the pinch that closed it doesn't immediately draw
+    state.lastActionTime = Date.now() + 500;
   });
-});
+
+  // Start camera tracking immediately on app load
+  tracker.start().then(() => {
+    uiManager.hideStatus();
+  }).catch((err) => {
+    console.error(err);
+    uiManager.showStatusError('Camera blocked', 'Please allow camera access in your browser, then refresh.');
+  });
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

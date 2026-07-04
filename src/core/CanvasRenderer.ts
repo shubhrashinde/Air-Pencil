@@ -23,10 +23,18 @@ export class CanvasRenderer {
   }
 
   private resizeCanvas() {
-    const img = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-    this.canvas.width = this.canvas.offsetWidth;
-    this.canvas.height = this.canvas.offsetHeight;
-    this.ctx.putImageData(img, 0, 0);
+    let img = null;
+    if (this.canvas.width > 0 && this.canvas.height > 0) {
+      img = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+    }
+    
+    // Ensure canvas is never 0x0
+    this.canvas.width = Math.max(1, this.canvas.offsetWidth);
+    this.canvas.height = Math.max(1, this.canvas.offsetHeight);
+    
+    if (img) {
+      this.ctx.putImageData(img, 0, 0);
+    }
   }
 
   public clear() {
@@ -180,8 +188,21 @@ export class CanvasRenderer {
       this.beginStroke();
     }
     
-    // EMA Smoothing
-    const smoothingFactor = 0.4;
+    // Dynamic Velocity-Based Smoothing (1-Euro style)
+    let smoothingFactor = 0.5;
+    if (state.smoothedX !== null && state.smoothedY !== null) {
+      const dx = rawX - state.smoothedX;
+      const dy = rawY - state.smoothedY;
+      const velocity = Math.hypot(dx, dy);
+      
+      // If moving fast, we want high alpha (responsive, little smoothing)
+      // If moving slow, we want low alpha (heavy smoothing to remove jitter)
+      const minAlpha = 0.15; // Slow movement
+      const maxAlpha = 0.85; // Fast movement
+      const velocityThreshold = 80; // pixels per frame
+      
+      smoothingFactor = minAlpha + (Math.min(velocity, velocityThreshold) / velocityThreshold) * (maxAlpha - minAlpha);
+    }
     
     if (state.smoothedX === null || state.smoothedY === null) {
       state.smoothedX = rawX;
@@ -209,21 +230,51 @@ export class CanvasRenderer {
     this.ctx.shadowBlur = 0;
     this.ctx.shadowColor = 'transparent';
 
+    const pts = this.currentStrokePoints;
+    const len = pts.length;
+
+    // We only draw the newest segment using Bezier curves if we have enough points
+    const drawBezierSegment = () => {
+      this.ctx.beginPath();
+      if (len < 3) {
+        // Just draw a dot for the first point
+        if (len === 1) {
+          const p1 = pts[0];
+          this.ctx.arc(p1.x, p1.y, state.brushSize / 2, 0, Math.PI * 2);
+          this.ctx.fill();
+        } else if (len === 2) {
+          // Draw the very first half-segment from p0 to mid(p0, p1)
+          const p0 = pts[0];
+          const p1 = pts[1];
+          const mid1x = (p0.x + p1.x) / 2;
+          const mid1y = (p0.y + p1.y) / 2;
+          this.ctx.moveTo(p0.x, p0.y);
+          this.ctx.lineTo(mid1x, mid1y);
+          this.ctx.stroke();
+        }
+      } else {
+        // Incremental Bezier from the midpoints of the last few segments
+        const p0 = pts[len - 3];
+        const p1 = pts[len - 2];
+        const p2 = pts[len - 1];
+        
+        const mid1x = (p0.x + p1.x) / 2;
+        const mid1y = (p0.y + p1.y) / 2;
+        
+        const mid2x = (p1.x + p2.x) / 2;
+        const mid2y = (p1.y + p2.y) / 2;
+        
+        this.ctx.moveTo(mid1x, mid1y);
+        this.ctx.quadraticCurveTo(p1.x, p1.y, mid2x, mid2y);
+        this.ctx.stroke();
+      }
+    };
+
     if (state.erasing || state.brushType === 'solid') {
       this.ctx.lineWidth = state.brushSize;
       this.ctx.lineCap = 'round';
       this.ctx.lineJoin = 'round';
-      this.ctx.beginPath();
-      if (state.prevX !== null && state.prevY !== null) {
-        this.ctx.moveTo(state.prevX, state.prevY);
-        this.ctx.lineTo(logicalX, logicalY);
-      } else {
-        this.ctx.arc(logicalX, logicalY, state.brushSize / 2, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.beginPath();
-        this.ctx.moveTo(logicalX, logicalY);
-      }
-      this.ctx.stroke();
+      drawBezierSegment();
     } 
     else if (state.brushType === 'neon') {
       this.ctx.lineWidth = state.brushSize;
@@ -232,21 +283,13 @@ export class CanvasRenderer {
       this.ctx.shadowBlur = state.brushSize * 2;
       this.ctx.shadowColor = state.color;
       this.ctx.strokeStyle = '#ffffff'; // white core
-      this.ctx.beginPath();
-      if (state.prevX !== null && state.prevY !== null) {
-        this.ctx.moveTo(state.prevX, state.prevY);
-        this.ctx.lineTo(logicalX, logicalY);
-      } else {
-        this.ctx.arc(logicalX, logicalY, state.brushSize / 2, 0, Math.PI * 2);
-        this.ctx.fill();
-      }
-      this.ctx.stroke();
+      drawBezierSegment();
       
       // Secondary stroke for extra glow
       this.ctx.strokeStyle = state.color;
       this.ctx.lineWidth = state.brushSize * 1.5;
       this.ctx.shadowBlur = state.brushSize * 4;
-      this.ctx.stroke();
+      drawBezierSegment();
     }
     else if (state.brushType === 'spray') {
       const radius = state.brushSize * 1.5;
@@ -265,7 +308,6 @@ export class CanvasRenderer {
       this.ctx.lineWidth = 2; // thin edge
       this.ctx.beginPath();
       if (state.prevX !== null && state.prevY !== null) {
-        // Draw angled line between prev and current
         const angle = Math.PI / 4; // 45 degree nib
         const width = state.brushSize;
         const dx = Math.cos(angle) * width;

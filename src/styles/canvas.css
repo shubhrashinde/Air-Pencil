@@ -29,6 +29,7 @@ main {
   opacity: 0.3;
   pointer-events: none;
   z-index: 1;
+  transform-origin: 0 0;
 }
 
 /* The drawing canvas — sits on top of the webcam */
@@ -39,6 +40,7 @@ main {
   height: 100%;
   cursor: none;
   z-index: 2;
+  transform-origin: 0 0;
 }
 
 /* Fingertip cursor overlay */

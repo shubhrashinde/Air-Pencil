@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AirArt ✦ Paint</title>
+
+  <!-- MediaPipe Hands -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+<div id="appView">
+  <header>
+    <a href="index.html" class="logo" style="text-decoration: none; color: inherit;">
+      <img src="/logo.png" alt="AirArt Logo" style="height: 24px; vertical-align: middle; margin-right: 8px; border-radius: 4px;" />
+      AirArt
+    </a>
+
+    <div class="controls">
+      <!-- Colour swatches -->
+      <span class="control-label">Colour</span>
+      <div class="palette" id="palette">
+        <div class="swatch active" data-color="#b48aff" style="background:#b48aff"></div>
+        <div class="swatch"        data-color="#ff6b9d" style="background:#ff6b9d"></div>
+        <div class="swatch"        data-color="#ffd166" style="background:#ffd166"></div>
+        <div class="swatch"        data-color="#06d6a0" style="background:#06d6a0"></div>
+        <div class="swatch"        data-color="#4cc9f0" style="background:#4cc9f0"></div>
+        <div class="swatch"        data-color="#ffffff" style="background:#ffffff"></div>
+      </div>
+      <!-- Custom picker -->
+      <input type="color" id="colorPicker" value="#b48aff" title="Pick any colour"/>
+
+      <div class="sep"></div>
+
+      <!-- Brush size -->
+      <span class="control-label">Size</span>
+      <div class="slider-wrap">
+        <input type="range" id="brushSize" min="2" max="40" value="10"/>
+        <span id="sizeLabel" class="control-label">10</span>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- Brush Type -->
+      <span class="control-label">Brush Type</span>
+      <select id="brushType">
+        <option value="solid">Solid</option>
+        <option value="neon">Neon Glow</option>
+        <option value="spray">Spray Paint</option>
+        <option value="calligraphy">Calligraphy</option>
+      </select>
+
+      <div class="sep"></div>
+
+      <!-- Eraser toggle -->
+      <button id="eraserBtn">Eraser</button>
+
+      <!-- Clear -->
+      <button id="clearBtn">Clear</button>
+
+      <!-- Save -->
+      <button class="primary" id="saveBtn">Save ↓</button>
+
+      <!-- Reference Image Upload -->
+      <label for="imageUpload" class="upload-btn">Upload Ref</label>
+      <input type="file" id="imageUpload" accept="image/*" style="display: none;" />
+
+      <!-- Manual -->
+      <button id="manualBtn">Manual (?)</button>
+    </div>
+  </header>
+
+  <!-- ── Canvas area ───────────────────────────────────────── -->
+  <main>
+    <video id="webcam" autoplay muted playsinline></video>
+    <img id="referenceImg" />
+    <canvas id="paintCanvas"></canvas>
+    <div id="cursorDot"></div>
+
+    <div id="status">
+      <h2>Starting camera…</h2>
+      <p>Allow camera access when your browser asks.</p>
+    </div>
+  </main>
+
+  <!-- ── Tips bar ──────────────────────────────────────────── -->
+  <footer>
+    <span>✦ <strong>Raise index finger</strong> to paint</span>
+    <span>✦ <strong>Pinch</strong> index + thumb to pause</span>
+    <span>✦ Works best in Chrome</span>
+  </footer>
+
+  <!-- ── Manual Modal ──────────────────────────────────────── -->
+  <div id="manualModal" class="hidden">
+    <div class="modal-content">
+      <h3>Gestures Manual</h3>
+      <ul>
+        <li><strong>Paint:</strong> Raise <em>only</em> your index finger.</li>
+        <li><strong>Air-Click:</strong> Move cursor over a button and pinch (index + thumb) to click.</li>
+        <li><strong>Pinky Eraser:</strong> Raise <em>only</em> your pinky finger to toggle the eraser.</li>
+        <li><strong>Clear Canvas:</strong> Hold an open palm (all 5 fingers) still for 1.5 seconds.</li>
+        <li><strong>Undo / Redo:</strong> With an open palm, quickly swipe left to Undo, or right to Redo.</li>
+        <li><strong>Dynamic Brush:</strong> Move your hand closer to the camera for a thicker brush.</li>
+      </ul>
+      <button id="closeManualBtn" class="primary">Close</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

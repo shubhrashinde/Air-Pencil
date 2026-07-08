@@ -193,10 +193,6 @@ export class PuzzleApp implements BaseApp {
     });
   }
 
-  private handleTileClick(index: number) {
-    // Deprecated for drag and drop, kept for fallback if needed
-  }
-
   private checkWin() {
     let won = true;
     for (let i = 0; i < 9; i++) {

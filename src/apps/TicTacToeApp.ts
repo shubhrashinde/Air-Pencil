@@ -1,6 +1,6 @@
 import { BaseApp } from '../core/BaseApp';
 import { HandTrackingEngine, HandEventCallback } from '../core/HandTrackingEngine';
-import type { Results, NormalizedLandmark } from '@mediapipe/hands';
+import type { Results } from '@mediapipe/hands';
 
 export class TicTacToeApp implements BaseApp {
   private container!: HTMLElement;

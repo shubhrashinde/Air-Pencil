@@ -1,4 +1,4 @@
-import type { Hands, Results, NormalizedLandmark } from '@mediapipe/hands';
+import type { Hands, Results } from '@mediapipe/hands';
 import type { Camera } from '@mediapipe/camera_utils';
 
 declare global {

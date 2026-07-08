@@ -6,7 +6,6 @@ import { state } from '../core/State';
 import type { Results, NormalizedLandmark } from '@mediapipe/hands';
 
 export class DrawingApp implements BaseApp {
-  private container!: HTMLElement;
   private renderer!: CanvasRenderer;
   private uiManager!: UIManager;
   private engine = HandTrackingEngine.getInstance();
@@ -25,9 +24,7 @@ export class DrawingApp implements BaseApp {
   private isZoomPanning = false;
   private smoothedDepthScale = 1.0;
 
-  public start(container: HTMLElement): void {
-    this.container = container;
-    
+  public start(_container: HTMLElement): void {
     const canvas = document.getElementById('paintCanvas') as HTMLCanvasElement;
     if (!canvas) return; 
 

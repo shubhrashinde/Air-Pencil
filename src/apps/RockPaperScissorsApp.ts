@@ -14,7 +14,6 @@ export class RockPaperScissorsApp implements BaseApp {
   private countdownValue: number = 3;
   private currentDetectedGesture: Gesture = 'unknown';
   
-  private uiOverlay!: HTMLElement;
   private startBtn!: HTMLButtonElement;
   private statusText!: HTMLElement;
   private playerMoveImg!: HTMLElement;

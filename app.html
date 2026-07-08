@@ -21,6 +21,20 @@
     </a>
 
     <div class="controls">
+      <!-- App Selector -->
+      <select id="appSelector" style="margin-right: 16px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px;">
+        <option value="drawing" style="color: black;">Air Drawing</option>
+        <option value="fingercounter" style="color: black;">AI Finger Counter</option>
+        <option value="rps" style="color: black;">Rock Paper Scissors</option>
+        <option value="tictactoe" style="color: black;">Tic-Tac-Toe</option>
+        <option value="calculator" style="color: black;">Calculator</option>
+        <option value="puzzle" style="color: black;">Picture Puzzle</option>
+      </select>
+
+      <div class="sep"></div>
+
+      <!-- Drawing Controls Wrapper -->
+      <div id="drawingControls" style="display: flex; align-items: center; gap: 12px;">
       <!-- Colour swatches -->
       <span class="control-label">Colour</span>
       <div class="palette" id="palette">
@@ -69,6 +83,8 @@
       <label for="imageUpload" class="upload-btn">Upload Ref</label>
       <input type="file" id="imageUpload" accept="image/*" style="display: none;" />
 
+      </div>
+
       <!-- Manual -->
       <button id="manualBtn">Manual (?)</button>
     </div>
@@ -77,9 +93,14 @@
   <!-- ── Canvas area ───────────────────────────────────────── -->
   <main>
     <video id="webcam" autoplay muted playsinline></video>
-    <img id="referenceImg" />
-    <canvas id="paintCanvas"></canvas>
-    <div id="cursorDot"></div>
+    
+    <div id="drawingAppContainer">
+      <img id="referenceImg" />
+      <canvas id="paintCanvas"></canvas>
+      <div id="cursorDot"></div>
+    </div>
+
+    <div id="dynamicAppContainer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: auto; z-index: 5;"></div>
 
     <div id="status">
       <h2>Starting camera…</h2>
@@ -105,6 +126,13 @@
         <li><strong>Clear Canvas:</strong> Hold an open palm (all 5 fingers) still for 1.5 seconds.</li>
         <li><strong>Undo / Redo:</strong> With an open palm, quickly swipe left to Undo, or right to Redo.</li>
         <li><strong>Dynamic Brush:</strong> Move your hand closer to the camera for a thicker brush.</li>
+      </ul>
+      <h3 style="margin-top: 1rem;">Other Apps</h3>
+      <ul>
+        <li><strong>AI Finger Counter:</strong> Hold up any number of fingers and keep your hand steady to hear the AI count them.</li>
+        <li><strong>Rock Paper Scissors:</strong> Select RPS from the dropdown, click 'Play Match', and throw your gesture on "SHOOT!".</li>
+        <li><strong>Tic-Tac-Toe & Calculator:</strong> Move your index finger to control the cursor. Pinch (index + thumb) to air-click buttons.</li>
+        <li><strong>Picture Puzzle:</strong> Hold up 5 fingers to snap a picture. Then <strong>pinch, hold, and drag</strong> a tile to slide it into the empty space.</li>
       </ul>
       <button id="closeManualBtn" class="primary">Close</button>
     </div>
